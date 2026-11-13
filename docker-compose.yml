@@ -1,0 +1,14 @@
+# Optional: a real Postgres with pgvector for shared or production-like setups.
+# Start with `docker compose up -d`, then set
+# DATABASE_URL=postgres://pmavn:pmavn@localhost:5432/pmavn
+services:
+  db:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: pmavn
+      POSTGRES_PASSWORD: pmavn
+      POSTGRES_DB: pmavn
+    ports: ["5432:5432"]
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+volumes:
+  pgdata:
