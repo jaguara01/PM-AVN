@@ -11,7 +11,7 @@ Several people work in this repository, each with Claude Code. This file is the 
 - `src/lib/transcript/core.js` — transcript parser and meeting heuristics, copied from the prototype, not yet typed.
 - `src/app/` — Next.js App Router pages, server actions in `actions.ts`, JSON routes under `api/`.
 - `prototype/` — the single-page app this product started as. Reference for porting; do not add features there.
-- `docs/` — `architecture.md`, `similarity.md`, `roadmap.md`.
+- `docs/` — `architecture.md`, `similarity.md`, `roadmap.md`, `design.md` (colours, type and patterns: follow it for any screen).
 
 ## Commands
 

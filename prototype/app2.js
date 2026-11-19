@@ -20,33 +20,36 @@ function fromHash() {
 function render() {
   const ae = document.activeElement, fid = ae && ae.id, ss = ae && ae.selectionStart, mn = $('.main'), top = mn ? mn.scrollTop : 0, key = view.route + view.id;
   if (view.route === 'project' && !project(view.id) || view.route === 'meeting' && !meeting(view.id)) view = { route: 'home', tab: 'board', mtab: 'notes' };
-  $('#root').innerHTML = rail() + `<main class="main" data-key="${h(key)}">${S.example ? `<div class="banner"><span>This is an example workspace so you can see how things fit together.</span><span class="grow"></span><button class="btn sm" data-act="keep-example">Keep it</button><button class="btn sm solid" data-act="clear-example">Start with an empty workspace</button></div>` : ''}${({ home: homeView, mywork: myWorkView, meetings: meetingsView, project: projectView, meeting: meetingView, search: searchView })[view.route]()}</main>` + drawer();
+  if (S.prefs.theme) document.documentElement.dataset.theme = S.prefs.theme;
+  $('#root').innerHTML = topbar() + `<main class="main" data-key="${h(key)}">${S.example ? `<div class="banner"><span>This is an example workspace so you can see how things fit together.</span><span class="grow"></span><button class="btn sm" data-act="keep-example">Keep it</button><button class="btn sm solid" data-act="clear-example">Start with an empty workspace</button></div>` : ''}${({ home: homeView, mywork: myWorkView, meetings: meetingsView, project: projectView, meeting: meetingView, search: searchView })[view.route]()}${footer()}</main>` + drawer();
   if (fid) { const el = document.getElementById(fid); if (el) { el.focus(); try { el.setSelectionRange(ss, ss); } catch (e) { } } }
   const m2 = $('.main'); if (m2 && mn && mn.dataset.key === key) m2.scrollTop = top;
   $$('a[data-act], .trow, .tl-lab, .topics li').forEach(a => a.tabIndex = 0);
   bindWhiteboard(); const ms = $('#msgs'); if (ms) ms.scrollTop = 1e9;
 }
 
-function rail() {
-  const on = (r, id) => view.route === r && (id == null || view.id === id) ? 'on' : '';
+const isDark = () => S.prefs.theme ? S.prefs.theme === 'dark' : (document.documentElement.dataset.theme === 'dark' || (!document.documentElement.dataset.theme && !!window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches));
+function topbar() {
+  const on = r => view.route === r ? 'on' : '';
   const waiting = M.reduce((n, m) => n + m.actions.filter(a => !a.taskId).length, 0);
-  return `<nav class="rail" aria-label="Workspace">
-  <div class="mark"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12 2 22 12 12 22 2 12z" fill="currentColor"/></svg><span>PM-AVN</span></div>
-  <label class="find">${ico('search')}<input id="search" type="search" placeholder="Search tasks and meetings" value="${h(view.q || '')}" aria-label="Search"></label>
-  <div class="navs">
+  const cur = view.route === 'project' && project(view.id);
+  return `<header class="topbar">
+  <a class="brand" data-act="go" data-r="home" aria-label="PM-AVN home"><img src="__LOGO__" alt="element61" width="104" height="42"><b>PM-AVN</b><span>Project management</span></a>
+  <nav class="tnav" aria-label="Workspace">
    <a class="nav ${on('home')}" data-act="go" data-r="home">${ico('home')}<span>Home</span></a>
    <a class="nav ${on('mywork')}" data-act="go" data-r="mywork">${ico('me')}<span>My work</span></a>
+   <details class="pmenu"><summary class="nav ${cur ? 'on' : ''}">${ico('folder')}<span>${cur ? h(cur.name) : 'Projects'}</span>${ico('down')}</summary>
+    <div class="pmenu-list">${S.projects.map(p => `<a class="nav ${view.route === 'project' && view.id === p.id ? 'on' : ''}" data-act="go" data-r="project" data-id="${p.id}"><i class="pdot" style="background:${COLORS[p.color % COLORS.length]}"></i><span>${h(p.name)}</span><em class="quiet">${S.tasks.filter(t => t.pid === p.id && t.status !== 'done').length}</em></a>`).join('') || '<p class="quietp" style="padding:6px 13px">No projects yet.</p>'}<hr><a class="nav" data-act="new-project">${ico('plus')}<span>New project</span></a></div></details>
    <a class="nav ${on('meetings')} ${view.route === 'meeting' ? 'on' : ''}" data-act="go" data-r="meetings">${ico('meet')}<span>Meetings</span>${waiting ? `<em title="Action items waiting for review">${waiting}</em>` : ''}</a>
-  </div>
-  <div class="rail-h"><span>Projects</span><button class="iconbtn" data-act="new-project" title="New project" aria-label="New project">${ico('plus')}</button></div>
-  <div class="navs">${S.projects.map(p => `<a class="nav ${on('project', p.id)}" data-act="go" data-r="project" data-id="${p.id}"><i class="pdot" style="background:${COLORS[p.color % COLORS.length]}"></i><span>${h(p.name)}</span><em class="quiet">${S.tasks.filter(t => t.pid === p.id && t.status !== 'done').length}</em></a>`).join('') || '<p class="rail-empty">No projects yet.</p>'}</div>
-  <div class="grow"></div>
-  <div class="rail-foot">
-   <p><i class="led ${storeState === 'cloud' ? 'ok' : storeState === 'error' ? 'bad' : ''}"></i>${storeState === 'cloud' ? 'Saved to your Claude account' : storeState === 'error' ? 'Not syncing, saved in this browser' : 'Saved in this browser'}</p>
-   <p><i class="led ${sampler ? 'ok' : ''}"></i>${sampler ? 'Claude is available' : 'Claude is not available here'}</p>
-   <p class="links"><a data-act="backup">Download backup</a><label>Restore<input type="file" id="restore" accept=".json" hidden></label></p>
-  </div></nav>`;
+  </nav>
+  <div class="tright"><label class="find">${ico('search')}<input id="search" type="search" placeholder="Search tasks and meetings" value="${h(view.q || '')}" aria-label="Search"></label>
+  <button class="iconbtn" data-act="theme" aria-label="${isDark() ? 'Switch to light mode' : 'Switch to dark mode'}" title="${isDark() ? 'Light mode' : 'Dark mode'}">${ico(isDark() ? 'sun' : 'moon')}</button>
+  <button class="btn solid pillbtn" data-act="go" data-r="meetings">${ico('plus')}New meeting</button></div>
+ </header>`;
 }
+const footer = () => `<footer class="foot"><span><i class="led ${storeState === 'cloud' ? 'ok' : storeState === 'error' ? 'bad' : ''}"></i>${storeState === 'cloud' ? 'Saved to your Claude account' : storeState === 'error' ? 'Not syncing, saved in this browser' : 'Saved in this browser'}</span>
+  <span><i class="led ${sampler ? 'ok' : ''}"></i>${sampler ? 'Claude is available' : 'Claude is not available here'}</span><span class="grow"></span>
+  <a data-act="backup">Download backup</a><label>Restore<input type="file" id="restore" accept=".json" hidden></label></footer>`;
 
 /* ---------- shared pieces ---------- */
 const taskRow = (t, o = {}) => `<div class="trow ${t.status === 'done' ? 'is-done' : ''}" data-act="open-task" data-id="${t.id}">
@@ -57,21 +60,28 @@ const taskRow = (t, o = {}) => `<div class="trow ${t.status === 'done' ? 'is-don
 const empty = (title, body, btn) => `<div class="empty"><b>${title}</b><p>${body}</p>${btn || ''}</div>`;
 
 /* ---------- home ---------- */
+const FLOW = [['Plan', 'Projects, owners and dates on one board, so everyone sees what is next.'], ['Meet', 'Drop in a transcript from any tool. Notes, decisions and action items come out.'], ['Deliver', 'Move tasks to done on the board and timeline, and keep dates honest.'], ['Report', 'Write status updates and next-week plans from the tasks and meeting notes.']];
+const srow = (attrs, icon, label, meta = '', extra = '', cls = '') => `<a class="srow ${cls}" ${attrs}>${ico(icon)}<span class="sl">${label}</span>${extra}${meta}${ico('arrow').replace('class="ico"', 'class="ico go"')}</a>`;
+const scard = (n, title, rows) => `<section class="scard c${n}"><h2><span class="num">${n}</span><span>${title}</span></h2>${rows}</section>`;
 function homeView() {
   const t0 = today(), open = S.tasks.filter(t => t.status !== 'done'), late = open.filter(isLate), week = open.filter(t => t.due >= t0 && t.due <= addDays(t0, 6));
   const days = [...Array(7)].map((_, i) => addDays(t0, i));
-  const waiting = M.filter(m => m.actions.some(a => !a.taskId));
-  return `<header class="top"><div><h1>${dateOf(t0).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}</h1>
-   <p class="sub">${week.length} ${week.length === 1 ? 'task is' : 'tasks are'} due in the next seven days${late.length ? `, and <b class="late">${late.length} ${late.length === 1 ? 'is' : 'are'} late</b>` : ''}.</p></div></header>
-  <section class="week" aria-label="Next seven days">${days.map((d, i) => { const ts = week.filter(t => t.due === d); const wd = dateOf(d); return `<div class="day ${i === 0 ? 'now' : ''} ${[0, 6].includes(wd.getDay()) ? 'wkd' : ''}"><div class="dh"><span>${i === 0 ? 'Today' : wd.toLocaleDateString('en-GB', { weekday: 'short' })}</span><b>${wd.getDate()}</b></div>
-    ${ts.map(t => `<button class="chip" data-act="open-task" data-id="${t.id}" style="--c:${COLORS[(project(t.pid) || { color: 6 }).color % COLORS.length]}"><span>${h(t.title)}</span>${av(t.owner, 'xs')}</button>`).join('')}</div>`; }).join('')}</section>
-  <div class="cols">
-   <section><h2>Projects</h2>${S.projects.map(p => { const ts = tasksOf(p.id), n = ts.length || 1; return `<a class="prow" data-act="go" data-r="project" data-id="${p.id}"><i class="pdot lg" style="background:${COLORS[p.color % COLORS.length]}"></i><div class="pn"><b>${h(p.name)}</b><span>${ts.filter(t => t.status === 'done').length} of ${ts.length} done${ts.some(isLate) ? `, <span class="late">${ts.filter(isLate).length} late</span>` : ''}</span></div>
-     <div class="seg" role="img" aria-label="Progress by status">${STATUS.map(([k]) => `<i class="s-${k}" style="flex:${ts.filter(t => t.status === k).length / n}"></i>`).join('')}</div></a>`; }).join('') || empty('No projects yet', 'A project holds a board, a timeline, its meetings and its documents.', '<button class="btn solid" data-act="new-project">Create a project</button>')}
-    <h2>Late</h2>${late.length ? `<div class="rows">${late.sort((a, b) => a.due < b.due ? -1 : 1).map(t => taskRow(t, { project: 1 })).join('')}</div>` : '<p class="quietp">Nothing is late.</p>'}</section>
-   <section><h2>Meetings</h2>${M.length ? `<div class="rows">${M.slice(0, 6).map(meetingRow).join('')}</div>` : empty('No meetings yet', 'Import a transcript and its action items land here for review.', '<button class="btn solid" data-act="go" data-r="meetings">Import a transcript</button>')}
-    ${waiting.length ? `<p class="callout">${srcMark}<span>${waiting.reduce((n, m) => n + m.actions.filter(a => !a.taskId).length, 0)} action items from ${waiting.length} ${waiting.length === 1 ? 'meeting are' : 'meetings are'} waiting for review.</span><button class="btn sm" data-act="go" data-r="meeting" data-id="${waiting[0].id}" data-mtab="actions">Review</button></p>` : ''}</section>
-  </div>`;
+  const waitingM = M.filter(m => m.actions.some(a => !a.taskId)), waitingN = M.reduce((n, m) => n + m.actions.filter(a => !a.taskId).length, 0);
+  const hr = new Date().getHours(), greet = hr < 12 ? 'Good morning' : hr < 18 ? 'Good afternoon' : 'Good evening';
+  const first = S.prefs.me ? ', ' + h(S.prefs.me.split(' ')[0]) : '';
+  const plan = S.projects.map(p => { const ts = tasksOf(p.id), nl = ts.filter(isLate).length; return srow(`data-act="go" data-r="project" data-id="${p.id}"`, 'folder', h(p.name), `<span class="sm">${ts.filter(t => t.status === 'done').length} of ${ts.length} done</span>`, nl ? `<span class="tag t3">${nl} late</span>` : ''); }).join('') + srow('data-act="new-project"', 'plus', 'Start a new project', '', '', 'add');
+  const meet = M.slice(0, 5).map(m => { const w = m.actions.filter(a => !a.taskId).length; return srow(`data-act="go" data-r="meeting" data-id="${m.id}" ${w ? 'data-mtab="actions"' : ''}`, 'meet', h(m.title), `<span class="sm">${fmtDay(m.date)}</span>`, w ? `<span class="tag t2">${w} to review</span>` : ''); }).join('') + srow('data-act="go" data-r="meetings"', 'doc', 'Import a transcript from Teams, Zoom or Meet', '', '', 'add');
+  const due = [...late.sort((a, b) => a.due < b.due ? -1 : 1), ...week.filter(t => !isLate(t)).sort((a, b) => a.due < b.due ? -1 : 1)].slice(0, 6);
+  const deliver = due.map(t => srow(`data-act="open-task" data-id="${t.id}"`, 'clock', h(t.title), `<span class="sm ${isLate(t) ? 'late' : ''}">${h(dueLabel(t.due))}</span>`, av(t.owner, 'sm'))).join('') || '<p class="quietp" style="padding:8px">Nothing is due this week.</p>';
+  const report = S.projects.slice(0, 4).map(p => srow(`data-act="go" data-r="project" data-id="${p.id}" data-tab="docs" data-tpl="status"`, 'doc', 'Status update for ' + h(p.name), '<span class="sm">Write with Claude</span>')).join('') + srow('data-act="go" data-r="mywork"', 'me', 'See everything assigned to me', '', '', 'add');
+  return `<section class="hero"><h1>${greet}${first}: here is your week across every project</h1>
+   <p class="welcome">Welcome to PM-AVN, the element61 project workspace.</p>
+   <p class="intro">${week.length} ${week.length === 1 ? 'task is' : 'tasks are'} due in the next seven days${late.length ? `, and <b class="late">${late.length} ${late.length === 1 ? 'is' : 'are'} late</b>` : ''}.${waitingN ? ` ${waitingN} action ${waitingN === 1 ? 'item from a meeting is' : 'items from meetings are'} waiting for your review.` : ''}</p></section>
+  <section><p class="eyebrow">Your project flow</p><div class="steps">${FLOW.map(([t, d], i) => `<div class="step c${i + 1}"><span class="num">${i + 1}</span><b>${t}</b><span class="sd">${d}</span></div>`).join('')}</div></section>
+  <section><p class="eyebrow">Next seven days</p><div class="week" aria-label="Next seven days">${days.map((d, i) => { const ts = week.filter(t => t.due === d); const wd = dateOf(d); return `<div class="day ${i === 0 ? 'now' : ''} ${[0, 6].includes(wd.getDay()) ? 'wkd' : ''}"><div class="dh"><span>${i === 0 ? 'Today' : wd.toLocaleDateString('en-GB', { weekday: 'short' })}</span><b>${wd.getDate()}</b></div>
+    ${ts.map(t => `<button class="chip" data-act="open-task" data-id="${t.id}" style="--c:${COLORS[(project(t.pid) || { color: 6 }).color % COLORS.length]}"><span>${h(t.title)}</span>${av(t.owner, 'xs')}</button>`).join('')}</div>`; }).join('')}</div></section>
+  <div class="stepcards">${scard(1, 'Plan: your projects', plan)}${scard(2, 'Meet: recent meetings', meet)}${scard(3, 'Deliver: late and due this week', deliver)}${scard(4, 'Report: keep people informed', report)}</div>
+  ${waitingM.length ? `<aside class="tip">${ico('bulb')}<span>${waitingN} action ${waitingN === 1 ? 'item' : 'items'} from <b>${h(waitingM[0].title)}</b>${waitingM.length > 1 ? ` and ${waitingM.length - 1} other ${waitingM.length === 2 ? 'meeting' : 'meetings'}` : ''} ${waitingN === 1 ? 'is' : 'are'} waiting to go on a board.</span><button class="btn sm solid" data-act="go" data-r="meeting" data-id="${waitingM[0].id}" data-mtab="actions">Review</button></aside>` : ''}`;
 }
 const meetingRow = m => { const w = m.actions.filter(a => !a.taskId).length, p = project(m.projectId); return `<a class="mrow" data-act="go" data-r="meeting" data-id="${m.id}"><div class="pn"><b>${h(m.title)}</b><span>${fmtDay(m.date)}${p ? ', ' + h(p.name) : ''}</span></div>${w ? `<span class="pill sig">${w} to review</span>` : `<span class="pill">${m.actions.length} on the board</span>`}</a>`; };
 
@@ -290,7 +300,8 @@ document.addEventListener('click', e => {
   if (el.tagName !== 'INPUT' && el.tagName !== 'LABEL') e.preventDefault();
   e.stopPropagation();
   switch (act) {
-    case 'go': { const d = el.dataset; go(d.r, d.id, { mtab: d.mtab || 'notes' }); if (d.turn) jump(+d.turn); break; }
+    case 'go': { const d = el.dataset; go(d.r, d.id, { mtab: d.mtab || 'notes', tab: d.tab || 'board', tpl: d.tpl }); if (d.turn) jump(+d.turn); break; }
+    case 'theme': S.prefs.theme = isDark() ? 'light' : 'dark'; persist(); render(); break;
     case 'tab': view.tab = el.dataset.tab; view.doc = ''; render(); break;
     case 'mtab': view.mtab = el.dataset.tab; view.doc = ''; render(); break;
     case 'keep-example': S.example = false; persist(); render(); break;
@@ -384,6 +395,7 @@ document.addEventListener('drop', e => {
   dragId = null; persist(); render();
 });
 window.addEventListener('hashchange', fromHash);
+document.addEventListener('pointerdown', e => { $$('details.pmenu[open]').forEach(d => { if (!d.contains(e.target)) d.open = false; }); });
 
 /* ---------- start ---------- */
 if (!loadLocal()) exampleWorkspace();

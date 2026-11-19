@@ -3,6 +3,8 @@ import { getDb } from '@/lib/db/client';
 import { listProfiles, listProjects } from '@/lib/db/repo';
 import { strongestPairs } from '@/lib/services/profiles';
 import { addProject, loadExampleProjects, refreshAll } from './actions';
+import { Icon } from './icons';
+import { Score } from './score';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,33 +13,35 @@ export default async function Portfolio() {
   const [projects, profiles, pairs] = await Promise.all([listProjects(db), listProfiles(db), strongestPairs(db, 6)]);
   const name = (id: string) => projects.find((p) => p.id === id)?.name ?? id;
   const profileOf = (id: string) => profiles.find((p) => p.projectId === id)?.profile;
+  const best = pairs[0];
 
   return (
     <>
-      <div className="top">
+      <section className="top">
         <div>
-          <h1>Portfolio</h1>
-          <p className="sub">Each project has a profile: a summary, its keywords and the technologies it uses. Profiles are compared to show which projects are alike.</p>
+          <h1>The project portfolio: what our projects have in common</h1>
+          <p className="welcome">Find the team that already solved your problem.</p>
+          <p className="sub">Each project has a profile with a summary, keywords and the technologies it uses. Profiles are compared so you can reuse what works instead of starting from scratch.</p>
         </div>
         {projects.length > 0 && (
-          <form action={refreshAll}><button className="btn">Rewrite all profiles</button></form>
+          <form action={refreshAll}><button className="btn"><Icon name="refresh" />Rewrite all profiles</button></form>
         )}
-      </div>
+      </section>
 
       {projects.length === 0 ? (
-        <div className="empty">
+        <div className="empty" style={{ marginTop: 32 }}>
           <b>No projects yet</b>
           <p className="muted">Add your first project below, or load six example projects to see how matching works.</p>
           <form action={loadExampleProjects}><button className="btn solid">Load example projects</button></form>
         </div>
       ) : (
         <div className="cols">
-          <section>
-            <h2>Closest matches</h2>
+          <section className="card c1">
+            <h2><span className="num">1</span>Closest matches</h2>
             <div className="rows">
               {pairs.map((p) => (
                 <div className="row pair" key={p.fromId + p.projectId}>
-                  <div className="score">{Math.round(p.score * 100)}<small>of 100</small></div>
+                  <Score value={p.score} />
                   <div>
                     <b><Link href={`/projects/${p.fromId}`}>{name(p.fromId)}</Link> and <Link href={`/projects/${p.projectId}`}>{name(p.projectId)}</Link></b>
                     <p>{p.reason}</p>
@@ -49,8 +53,8 @@ export default async function Portfolio() {
               ))}
             </div>
           </section>
-          <section>
-            <h2>Projects</h2>
+          <section className="card c4">
+            <h2><span className="num">2</span>All projects</h2>
             <div className="rows">
               {projects.map((p) => {
                 const prof = profileOf(p.id);
@@ -67,12 +71,21 @@ export default async function Portfolio() {
         </div>
       )}
 
-      <h2>Add a project</h2>
-      <form className="new" action={addProject} style={{ maxWidth: 560 }}>
-        <label>Name<input name="name" required /></label>
-        <label>What is it, for whom, and with which tools?<textarea name="description" rows={3} /></label>
-        <div className="bar"><button className="btn solid">Add project</button></div>
-      </form>
+      {best && (
+        <aside className="tip">
+          <Icon name="bulb" size={22} />
+          <span><b>{name(best.fromId)}</b> and <b>{name(best.projectId)}</b> are the closest pair. {best.reason} <Link href={`/projects/${best.fromId}`}>Compare them</Link>.</span>
+        </aside>
+      )}
+
+      <section className="card c2" id="add-project" style={{ marginTop: 32, maxWidth: 640 }}>
+        <h2><span className="num">{projects.length ? 3 : 1}</span>Add a project</h2>
+        <form className="new" action={addProject}>
+          <label>Name<input name="name" required /></label>
+          <label>What is it, for whom, and with which tools?<textarea name="description" rows={3} /></label>
+          <div className="bar"><button className="btn solid">Add project</button></div>
+        </form>
+      </section>
     </>
   );
 }

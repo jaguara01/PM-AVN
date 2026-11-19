@@ -8,7 +8,7 @@ const today = () => isoOf(new Date());
 const LS = 'northdesk.v1';
 const STATUS = [['todo', 'To do'], ['doing', 'In progress'], ['review', 'In review'], ['done', 'Done']];
 const STNAME = Object.fromEntries(STATUS);
-const COLORS = ['#2E8B6A', '#3B63D9', '#8A4FB3', '#D9951A', '#C8503C', '#1E8A99', '#5B6B7A'];
+const COLORS = ['#F26412', '#D07C00', '#9E1F55', '#2D1B4E', '#1E8A99', '#3B63D9', '#5B6475'];
 
 let S = { v: 1, projects: [], tasks: [], prefs: { me: '' }, example: false };
 let M = [];
@@ -112,6 +112,11 @@ const ICON = {
   home: '<path d="M3.5 9 10 3.8 16.5 9v7h-4.3v-4.6H7.8V16H3.5z"/>', me: '<circle cx="10" cy="7" r="3.2"/><path d="M4 16.5c.7-3 3-4.4 6-4.4s5.3 1.4 6 4.4"/>',
   meet: '<rect x="3" y="4.5" width="14" height="9.5" rx="2"/><path d="M7 17h6M10 14v3"/>', plus: '<path d="M10 4.5v11M4.5 10h11"/>', x: '<path d="m5 5 10 10M15 5 5 15"/>',
   search: '<circle cx="9" cy="9" r="5"/><path d="m13 13 3.5 3.5"/>',
+  folder: '<path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H8l1.7 2h5.8A1.5 1.5 0 0 1 17 8.5v7a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 3 15.5z"/>',
+  down: '<path d="m6 8 4 4 4-4"/>', arrow: '<path d="M4.5 10h11M11 5.5l4.5 4.5-4.5 4.5"/>',
+  moon: '<path d="M16.5 12A6.5 6.5 0 1 1 8 3.5a5.2 5.2 0 0 0 8.5 8.5z"/>', sun: '<circle cx="10" cy="10" r="3.3"/><path d="M10 2.5v1.8M10 15.7v1.8M2.5 10h1.8M15.7 10h1.8M4.7 4.7l1.3 1.3M14 14l1.3 1.3M15.3 4.7 14 6M6 14l-1.3 1.3"/>',
+  bulb: '<path d="M7.5 15h5M8.5 17.5h3M10 2.5a5 5 0 0 0-3 9c.6.4.8 1 .8 1.8h4.4c0-.8.2-1.4.8-1.8a5 5 0 0 0-3-9z"/>',
+  doc: '<path d="M5.5 2.5h6.5l3 3v12h-9.5z"/><path d="M12 2.5v3h3M8 10h5M8 13h5"/>', clock: '<circle cx="10" cy="10" r="7"/><path d="M10 6.5V10l2.5 1.6"/>',
 };
 const ico = n => `<svg class="ico" viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[n]}</svg>`;
 
