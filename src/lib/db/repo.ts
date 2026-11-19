@@ -1,6 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import type { Db } from './client';
 import type { ProjectProfile, ProjectSource, StoredProfile } from '@/lib/similarity';
+import { NewTask, TaskPatch, positionBetween, type Status, type Task } from '@/lib/tasks';
+
+export type { Task } from '@/lib/tasks';
 
 export interface Project {
   id: string;
@@ -8,16 +11,6 @@ export interface Project {
   description: string;
   color: number;
 }
-export interface Task {
-  id: string;
-  projectId: string;
-  title: string;
-  status: string;
-  owner: string;
-  due: string | null;
-  notes: string;
-}
-
 const toVector = (v: number[]) => `[${v.join(',')}]`;
 const fromVector = (v: unknown): number[] => (typeof v === 'string' ? (JSON.parse(v) as number[]) : (v as number[]));
 const newId = () => randomUUID().replace(/-/g, '').slice(0, 12);
@@ -36,21 +29,84 @@ export async function createProject(db: Db, input: { id?: string; name: string; 
   return (await getProject(db, id))!;
 }
 
-export async function createTask(db: Db, input: { projectId: string; title: string; status?: string; owner?: string; due?: string | null; notes?: string }): Promise<string> {
+export async function updateProject(db: Db, id: string, patch: { name?: string; description?: string }): Promise<void> {
+  if (patch.name !== undefined && patch.name.trim()) await db.query('UPDATE projects SET name = $2 WHERE id = $1', [id, patch.name.trim()]);
+  if (patch.description !== undefined) await db.query('UPDATE projects SET description = $2 WHERE id = $1', [id, patch.description.trim()]);
+}
+
+/** Deletes the project and its tasks. Meetings stay, without a project. */
+export async function deleteProject(db: Db, id: string): Promise<void> {
+  await db.query('DELETE FROM projects WHERE id = $1', [id]);
+}
+
+/* ---------- tasks ---------- */
+
+const TASK_COLS = `id, project_id AS "projectId", title, status, owner, to_char(due, 'YYYY-MM-DD') AS due, to_char(start, 'YYYY-MM-DD') AS start,
+  priority, notes, meeting_id AS "meetingId", turn, position, to_char(created_at, 'YYYY-MM-DD') AS "createdAt"`;
+
+export async function createTask(db: Db, input: NewTask): Promise<string> {
+  const t = NewTask.parse(input);
   const id = newId();
-  await db.query('INSERT INTO tasks (id, project_id, title, status, owner, due, notes, position) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)', [
-    id, input.projectId, input.title, input.status ?? 'todo', input.owner ?? 'Unassigned', input.due ?? null, input.notes ?? '', Date.now(),
-  ]);
+  const last = (await db.query<{ p: number | null }>('SELECT max(position) AS p FROM tasks WHERE project_id = $1 AND status = $2', [t.projectId, t.status])).rows[0]?.p;
+  await db.query(
+    `INSERT INTO tasks (id, project_id, title, status, owner, due, start, priority, notes, meeting_id, turn, position)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+    [id, t.projectId, t.title, t.status, t.owner, t.due, t.start, t.priority, t.notes, t.meetingId, t.turn, positionBetween(last === null || last === undefined ? null : Number(last), null)],
+  );
   return id;
 }
 
+export async function getTask(db: Db, id: string): Promise<Task | null> {
+  return (await db.query<Task>(`SELECT ${TASK_COLS} FROM tasks WHERE id = $1`, [id])).rows[0] ?? null;
+}
+
+/** A project's tasks in board order: by status, then position. */
 export async function listTasks(db: Db, projectId: string): Promise<Task[]> {
-  return (
-    await db.query<Task>(
-      `SELECT id, project_id AS "projectId", title, status, owner, to_char(due, 'YYYY-MM-DD') AS due, notes FROM tasks WHERE project_id = $1 ORDER BY position`,
-      [projectId],
-    )
-  ).rows;
+  return (await db.query<Task>(`SELECT ${TASK_COLS} FROM tasks WHERE project_id = $1 ORDER BY position, created_at`, [projectId])).rows;
+}
+
+/** Tasks across all projects, optionally for one owner. */
+export async function listAllTasks(db: Db, opts: { owner?: string } = {}): Promise<Task[]> {
+  return opts.owner
+    ? (await db.query<Task>(`SELECT ${TASK_COLS} FROM tasks WHERE owner = $1 ORDER BY due NULLS LAST, position`, [opts.owner])).rows
+    : (await db.query<Task>(`SELECT ${TASK_COLS} FROM tasks ORDER BY due NULLS LAST, position`)).rows;
+}
+
+const PATCH_COLUMNS: Record<keyof TaskPatch, string> = {
+  title: 'title', status: 'status', owner: 'owner', due: 'due', start: 'start', priority: 'priority', notes: 'notes', projectId: 'project_id',
+};
+
+/** Applies a validated change. Throws a readable error for invalid input. */
+export async function updateTask(db: Db, id: string, patch: TaskPatch): Promise<Task | null> {
+  const p = TaskPatch.parse(patch);
+  const keys = (Object.keys(p) as (keyof TaskPatch)[]).filter((k) => p[k] !== undefined);
+  if (keys.length) {
+    const sets = keys.map((k, i) => `${PATCH_COLUMNS[k]} = $${i + 2}`).join(', ');
+    await db.query(`UPDATE tasks SET ${sets} WHERE id = $1`, [id, ...keys.map((k) => p[k])]);
+  }
+  return getTask(db, id);
+}
+
+/** Moves a task to a status column, placed just before `beforeId`, or at the end of the column. */
+export async function moveTask(db: Db, id: string, status: Status, beforeId: string | null): Promise<void> {
+  const task = await getTask(db, id);
+  if (!task) return;
+  const lane = (await db.query<{ id: string; position: number }>('SELECT id, position FROM tasks WHERE project_id = $1 AND status = $2 AND id <> $3 ORDER BY position', [task.projectId, status, id])).rows;
+  const i = beforeId ? lane.findIndex((t) => t.id === beforeId) : -1;
+  const pos = i >= 0
+    ? positionBetween(i > 0 ? Number(lane[i - 1].position) : null, Number(lane[i].position))
+    : positionBetween(lane.length ? Number(lane[lane.length - 1].position) : null, null);
+  await db.query('UPDATE tasks SET status = $2, position = $3 WHERE id = $1', [id, status, pos]);
+}
+
+export async function deleteTask(db: Db, id: string): Promise<void> {
+  await db.query('DELETE FROM tasks WHERE id = $1', [id]);
+}
+
+/** Names that appear as task owners, for owner pickers. Meeting speakers are added when meetings exist. */
+export async function listPeople(db: Db): Promise<string[]> {
+  const rows = (await db.query<{ name: string }>(`SELECT DISTINCT owner AS name FROM tasks WHERE owner <> 'Unassigned' ORDER BY 1`)).rows;
+  return rows.map((r) => r.name);
 }
 
 /** Everything a profile is written from. */
