@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getDb } from '@/lib/db/client';
-import { listProjects } from '@/lib/db/repo';
+import { listMeetings, listProjects } from '@/lib/db/repo';
 import { llmFromEnv } from '@/lib/llm';
 import { embedderFromEnv } from '@/lib/similarity';
 import { COLORS } from '@/lib/colors';
@@ -14,7 +14,9 @@ export const metadata: Metadata = { title: 'PM-AVN', description: 'Projects, mee
 export const dynamic = 'force-dynamic';
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const projects = await listProjects(await getDb());
+  const db = await getDb();
+  const [projects, meetings] = await Promise.all([listProjects(db), listMeetings(db)]);
+  const toReview = meetings.reduce((n, m) => n + m.toReview, 0);
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -42,12 +44,15 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   </NavLink>
                 ))}
                 {projects.length === 0 && <span className="nav muted">No projects yet</span>}
+                <hr />
+                <Link className="nav" href="/#add-project"><Icon name="plus" size={16} />New project</Link>
               </div>
             </details>
+            <NavLink href="/meetings"><Icon name="meetings" />Meetings{toReview > 0 && <em title="Action items waiting for review">{toReview}</em>}</NavLink>
           </nav>
           <div className="tright">
             <ThemeToggle />
-            <Link className="btn solid pill" href="/#add-project"><Icon name="plus" size={17} />New project</Link>
+            <Link className="btn solid pill" href="/meetings"><Icon name="plus" size={17} />New meeting</Link>
           </div>
         </header>
         <main>

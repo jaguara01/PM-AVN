@@ -50,3 +50,41 @@ CREATE TABLE IF NOT EXISTS project_profiles (
   content_hash    text NOT NULL,
   updated_at      timestamptz NOT NULL DEFAULT now()
 );
+
+-- Meetings: everything needed to show notes and review action items. Added after the first version, hence ALTER.
+ALTER TABLE meetings ADD COLUMN IF NOT EXISTS title_edited boolean NOT NULL DEFAULT false;
+ALTER TABLE meetings ADD COLUMN IF NOT EXISTS format text NOT NULL DEFAULT '';
+ALTER TABLE meetings ADD COLUMN IF NOT EXISTS wake text NOT NULL DEFAULT 'Claude';
+ALTER TABLE meetings ADD COLUMN IF NOT EXISTS redact boolean NOT NULL DEFAULT true;
+ALTER TABLE meetings ADD COLUMN IF NOT EXISTS domains text NOT NULL DEFAULT '';
+ALTER TABLE meetings ADD COLUMN IF NOT EXISTS external jsonb NOT NULL DEFAULT '[]';
+ALTER TABLE meetings ADD COLUMN IF NOT EXISTS speakers jsonb NOT NULL DEFAULT '[]';
+ALTER TABLE meetings ADD COLUMN IF NOT EXISTS board jsonb;                        -- whiteboard layout, null until first opened
+ALTER TABLE meetings ADD COLUMN IF NOT EXISTS chat jsonb NOT NULL DEFAULT '[]';   -- [{role, content}]
+
+-- Action items found in a meeting, waiting for review. Sending one to a board creates a task and links it here.
+CREATE TABLE IF NOT EXISTS meeting_actions (
+  id         text PRIMARY KEY,
+  meeting_id text NOT NULL REFERENCES meetings(id) ON DELETE CASCADE,
+  task       text NOT NULL,
+  owner      text NOT NULL DEFAULT 'Unassigned',
+  due_said   text,                                 -- the deadline as spoken, e.g. "by Friday"
+  due        date,                                 -- that deadline as a date, when it could be worked out
+  priority   text NOT NULL DEFAULT 'medium',
+  turn       integer NOT NULL DEFAULT 0,
+  task_id    text REFERENCES tasks(id) ON DELETE SET NULL,
+  position   integer NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS meeting_actions_meeting_idx ON meeting_actions(meeting_id);
+
+-- Documents written from a meeting or a project.
+CREATE TABLE IF NOT EXISTS documents (
+  id         text PRIMARY KEY,
+  project_id text REFERENCES projects(id) ON DELETE CASCADE,
+  meeting_id text REFERENCES meetings(id) ON DELETE CASCADE,
+  name       text NOT NULL,
+  template   text NOT NULL DEFAULT 'custom',
+  body       text NOT NULL,
+  written_by text NOT NULL DEFAULT '',
+  created_at timestamptz NOT NULL DEFAULT now()
+);

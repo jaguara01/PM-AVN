@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto';
 import type { Db } from './client';
 import type { ProjectProfile, ProjectSource, StoredProfile } from '@/lib/similarity';
 import { NewTask, TaskPatch, positionBetween, type Status, type Task } from '@/lib/tasks';
+import type { Turn } from '@/lib/transcript';
+import type { Analysis, ProposedAction } from '@/lib/meetings/analysis';
 
 export type { Task } from '@/lib/tasks';
 
@@ -103,10 +105,220 @@ export async function deleteTask(db: Db, id: string): Promise<void> {
   await db.query('DELETE FROM tasks WHERE id = $1', [id]);
 }
 
-/** Names that appear as task owners, for owner pickers. Meeting speakers are added when meetings exist. */
+/** Names that appear as task owners or meeting speakers, for owner pickers. */
 export async function listPeople(db: Db): Promise<string[]> {
-  const rows = (await db.query<{ name: string }>(`SELECT DISTINCT owner AS name FROM tasks WHERE owner <> 'Unassigned' ORDER BY 1`)).rows;
-  return rows.map((r) => r.name);
+  const rows = (
+    await db.query<{ name: string }>(
+      `SELECT owner AS name FROM tasks WHERE owner NOT IN ('Unassigned', 'Team')
+       UNION SELECT jsonb_array_elements_text(speakers) FROM meetings ORDER BY 1`,
+    )
+  ).rows;
+  return rows.map((r) => r.name).filter((n) => n && n !== 'Speaker');
+}
+
+/* ---------- meetings ---------- */
+
+export interface Meeting {
+  id: string;
+  projectId: string | null;
+  title: string;
+  titleEdited: boolean;
+  heldOn: string | null;
+  format: string;
+  wake: string;
+  redact: boolean;
+  domains: string;
+  external: string[];
+  speakers: string[];
+  turns: Turn[];
+  analysis: Analysis;
+  board: BoardNode[] | null;
+  chat: { role: 'user' | 'assistant'; content: string }[];
+  createdAt: string;
+}
+/** One note on the meeting whiteboard. */
+export interface BoardNode { id: string; kind: 'topic' | 'decision' | 'action' | 'question' | 'risk' | 'note'; text: string; owner?: string; turn?: number; x: number; y: number }
+
+export interface MeetingSummary {
+  id: string;
+  projectId: string | null;
+  title: string;
+  heldOn: string | null;
+  summary: string;
+  toReview: number;
+  onBoard: number;
+}
+
+export interface MeetingAction {
+  id: string;
+  meetingId: string;
+  task: string;
+  owner: string;
+  dueSaid: string | null;
+  due: string | null;
+  priority: 'high' | 'medium' | 'low';
+  turn: number;
+  taskId: string | null;
+}
+
+const MEETING_COLS = `id, project_id AS "projectId", title, title_edited AS "titleEdited", to_char(held_on, 'YYYY-MM-DD') AS "heldOn", format, wake, redact, domains,
+  external, speakers, turns, analysis, board, chat, to_char(created_at, 'YYYY-MM-DD') AS "createdAt"`;
+const json = (v: unknown) => (typeof v === 'string' ? JSON.parse(v) : v);
+const toMeeting = (r: Record<string, unknown>): Meeting =>
+  ({ ...r, external: json(r.external), speakers: json(r.speakers), turns: json(r.turns), analysis: json(r.analysis), board: json(r.board), chat: json(r.chat) }) as Meeting;
+
+export async function createMeeting(
+  db: Db,
+  m: Omit<Meeting, 'id' | 'createdAt' | 'board' | 'chat'>,
+): Promise<string> {
+  const id = newId();
+  await db.query(
+    `INSERT INTO meetings (id, project_id, title, title_edited, held_on, format, wake, redact, domains, external, speakers, turns, analysis, summary)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11::jsonb, $12::jsonb, $13::jsonb, $14)`,
+    [id, m.projectId, m.title, m.titleEdited, m.heldOn, m.format, m.wake, m.redact, m.domains, JSON.stringify(m.external), JSON.stringify(m.speakers), JSON.stringify(m.turns), JSON.stringify(m.analysis), m.analysis.summary],
+  );
+  return id;
+}
+
+export async function getMeeting(db: Db, id: string): Promise<Meeting | null> {
+  const r = (await db.query<Record<string, unknown>>(`SELECT ${MEETING_COLS} FROM meetings WHERE id = $1`, [id])).rows[0];
+  return r ? toMeeting(r) : null;
+}
+
+/** Meetings newest first, with how many action items wait for review. */
+export async function listMeetings(db: Db, opts: { projectId?: string } = {}): Promise<MeetingSummary[]> {
+  const where = opts.projectId ? 'WHERE m.project_id = $1' : '';
+  return (
+    await db.query<MeetingSummary>(
+      `SELECT m.id, m.project_id AS "projectId", m.title, to_char(m.held_on, 'YYYY-MM-DD') AS "heldOn", m.summary,
+         (SELECT count(*)::int FROM meeting_actions a WHERE a.meeting_id = m.id AND a.task_id IS NULL) AS "toReview",
+         (SELECT count(*)::int FROM meeting_actions a WHERE a.meeting_id = m.id AND a.task_id IS NOT NULL) AS "onBoard"
+       FROM meetings m ${where} ORDER BY m.held_on DESC NULLS LAST, m.created_at DESC`,
+      opts.projectId ? [opts.projectId] : [],
+    )
+  ).rows;
+}
+
+export async function updateMeeting(
+  db: Db,
+  id: string,
+  patch: Partial<Pick<Meeting, 'title' | 'titleEdited' | 'projectId' | 'heldOn' | 'redact' | 'board' | 'chat'>>,
+): Promise<void> {
+  const cols: Record<string, [string, unknown]> = {
+    title: ['title', patch.title], titleEdited: ['title_edited', patch.titleEdited], projectId: ['project_id', patch.projectId],
+    heldOn: ['held_on', patch.heldOn], redact: ['redact', patch.redact],
+    board: ['board', patch.board === undefined ? undefined : JSON.stringify(patch.board)], chat: ['chat', patch.chat === undefined ? undefined : JSON.stringify(patch.chat)],
+  };
+  const sets = Object.values(cols).filter(([, v]) => v !== undefined);
+  if (!sets.length) return;
+  const sql = sets.map(([c], i) => `${c} = $${i + 2}${c === 'board' || c === 'chat' ? '::jsonb' : ''}`).join(', ');
+  await db.query(`UPDATE meetings SET ${sql} WHERE id = $1`, [id, ...sets.map(([, v]) => v)]);
+}
+
+/**
+ * Stores a new analysis. Action items already sent to a board are kept; the others are replaced by `actions`,
+ * leaving out any at a line where a sent item already sits.
+ */
+export async function setMeetingAnalysis(db: Db, id: string, analysis: Analysis, actions: (ProposedAction & { dueDate: string | null })[]): Promise<void> {
+  const m = await getMeeting(db, id);
+  if (!m) return;
+  await db.query(
+    `UPDATE meetings SET analysis = $2::jsonb, summary = $3, board = NULL, title = CASE WHEN title_edited OR $4 = '' THEN title ELSE $4 END WHERE id = $1`,
+    [id, JSON.stringify(analysis), analysis.summary, analysis.title],
+  );
+  await db.query('DELETE FROM meeting_actions WHERE meeting_id = $1 AND task_id IS NULL', [id]);
+  const sentTurns = new Set((await listMeetingActions(db, id)).map((a) => a.turn));
+  let pos = 0;
+  for (const a of actions) {
+    if (sentTurns.has(a.turn)) continue;
+    await db.query(
+      'INSERT INTO meeting_actions (id, meeting_id, task, owner, due_said, due, priority, turn, position) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)',
+      [newId(), id, a.task, a.owner, a.due, a.dueDate, a.priority, a.turn, pos++],
+    );
+  }
+}
+
+/** Replaces the stored analysis as is, without touching action items (used to save results of in-call requests). */
+export async function saveAnalysis(db: Db, id: string, analysis: Analysis): Promise<void> {
+  await db.query('UPDATE meetings SET analysis = $2::jsonb WHERE id = $1', [id, JSON.stringify(analysis)]);
+}
+
+export async function listMeetingActions(db: Db, meetingId: string): Promise<MeetingAction[]> {
+  return (
+    await db.query<MeetingAction>(
+      `SELECT id, meeting_id AS "meetingId", task, owner, due_said AS "dueSaid", to_char(due, 'YYYY-MM-DD') AS due, priority, turn, task_id AS "taskId"
+       FROM meeting_actions WHERE meeting_id = $1 ORDER BY position, turn`,
+      [meetingId],
+    )
+  ).rows;
+}
+
+export async function getMeetingAction(db: Db, id: string): Promise<MeetingAction | null> {
+  return (
+    await db.query<MeetingAction>(
+      `SELECT id, meeting_id AS "meetingId", task, owner, due_said AS "dueSaid", to_char(due, 'YYYY-MM-DD') AS due, priority, turn, task_id AS "taskId" FROM meeting_actions WHERE id = $1`,
+      [id],
+    )
+  ).rows[0] ?? null;
+}
+
+export async function addMeetingAction(db: Db, meetingId: string, a: { task: string; owner?: string; turn?: number }): Promise<string> {
+  const id = newId();
+  const pos = (await db.query<{ p: number | null }>('SELECT max(position) AS p FROM meeting_actions WHERE meeting_id = $1', [meetingId])).rows[0]?.p ?? -1;
+  await db.query('INSERT INTO meeting_actions (id, meeting_id, task, owner, turn, position) VALUES ($1, $2, $3, $4, $5, $6)', [id, meetingId, a.task, a.owner ?? 'Unassigned', a.turn ?? 0, Number(pos) + 1]);
+  return id;
+}
+
+/** Edits an action item that has not been sent yet. */
+export async function updateMeetingAction(db: Db, id: string, patch: { task?: string; owner?: string; due?: string | null; priority?: string }): Promise<void> {
+  const map: [string, unknown][] = [['task', patch.task?.trim() || undefined], ['owner', patch.owner === undefined ? undefined : patch.owner.trim() || 'Unassigned'], ['due', patch.due === undefined ? undefined : patch.due || null], ['priority', patch.priority]];
+  const sets = map.filter(([, v]) => v !== undefined);
+  if (!sets.length) return;
+  await db.query(`UPDATE meeting_actions SET ${sets.map(([c], i) => `${c} = $${i + 2}`).join(', ')} WHERE id = $1 AND task_id IS NULL`, [id, ...sets.map(([, v]) => v)]);
+}
+
+export async function deleteMeetingAction(db: Db, id: string): Promise<void> {
+  await db.query('DELETE FROM meeting_actions WHERE id = $1 AND task_id IS NULL', [id]);
+}
+
+export async function linkActionToTask(db: Db, actionId: string, taskId: string): Promise<void> {
+  await db.query('UPDATE meeting_actions SET task_id = $2 WHERE id = $1', [actionId, taskId]);
+}
+
+/** Deletes a meeting. Tasks created from it stay on their boards, without the link. */
+export async function deleteMeeting(db: Db, id: string): Promise<void> {
+  await db.query('UPDATE tasks SET meeting_id = NULL, turn = NULL WHERE meeting_id = $1', [id]);
+  await db.query('DELETE FROM meetings WHERE id = $1', [id]);
+}
+
+/** For tasks that came from a meeting: the meeting's title, date and the quoted line. */
+export async function meetingOrigins(db: Db, meetingIds: string[]): Promise<Map<string, { title: string; heldOn: string | null; turns: Turn[] }>> {
+  if (!meetingIds.length) return new Map();
+  const rows = (await db.query<{ id: string; title: string; heldOn: string | null; turns: unknown }>(
+    `SELECT id, title, to_char(held_on, 'YYYY-MM-DD') AS "heldOn", turns FROM meetings WHERE id = ANY($1::text[])`, [meetingIds],
+  )).rows;
+  return new Map(rows.map((r) => [r.id, { title: r.title, heldOn: r.heldOn, turns: json(r.turns) as Turn[] }]));
+}
+
+/* ---------- documents ---------- */
+
+export interface DocumentRow { id: string; projectId: string | null; meetingId: string | null; name: string; template: string; body: string; writtenBy: string; createdAt: string }
+const DOC_COLS = `id, project_id AS "projectId", meeting_id AS "meetingId", name, template, body, written_by AS "writtenBy", to_char(created_at, 'YYYY-MM-DD HH24:MI') AS "createdAt"`;
+
+export async function createDocument(db: Db, d: { projectId?: string | null; meetingId?: string | null; name: string; template: string; body: string; writtenBy: string }): Promise<string> {
+  const id = newId();
+  await db.query('INSERT INTO documents (id, project_id, meeting_id, name, template, body, written_by) VALUES ($1, $2, $3, $4, $5, $6, $7)', [id, d.projectId ?? null, d.meetingId ?? null, d.name, d.template, d.body, d.writtenBy]);
+  return id;
+}
+
+export async function listDocuments(db: Db, owner: { projectId?: string; meetingId?: string }): Promise<DocumentRow[]> {
+  return owner.meetingId
+    ? (await db.query<DocumentRow>(`SELECT ${DOC_COLS} FROM documents WHERE meeting_id = $1 ORDER BY created_at DESC`, [owner.meetingId])).rows
+    : (await db.query<DocumentRow>(`SELECT ${DOC_COLS} FROM documents WHERE project_id = $1 AND meeting_id IS NULL ORDER BY created_at DESC`, [owner.projectId])).rows;
+}
+
+export async function deleteDocument(db: Db, id: string): Promise<void> {
+  await db.query('DELETE FROM documents WHERE id = $1', [id]);
 }
 
 /** Everything a profile is written from. */
