@@ -14,11 +14,11 @@ Put your name after a task when you start it. Each item should fit in one pull r
 
 The behaviour to match is in `prototype/` (`npm run prototype`, then open `prototype/index.html`).
 
-- [ ] Task API and server actions: create, edit, move, delete.
-- [ ] Board with drag and drop between the four statuses.
+- [x] Task API and server actions: create, edit, move, delete.
+- [x] Board with drag and drop between the four statuses.
 - [ ] List with sorting and inline editing.
 - [ ] Timeline.
-- [ ] Task panel with source meeting and quoted transcript line.
+- [x] Task panel (the source meeting and quoted line arrive with meetings).
 - [ ] Home (next seven days, late, per-project progress) and My work.
 - [ ] Meetings: import a transcript, store turns, quick offline notes (`src/lib/transcript/core.js` already does the parsing).
 - [ ] Meetings: notes written by Claude, on the server.
