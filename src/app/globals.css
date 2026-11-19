@@ -313,6 +313,61 @@ mark { background: var(--amber-s); color: inherit; border-bottom: 2px solid var(
 .tl-now { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--orange); opacity: 0.7; z-index: 1; pointer-events: none; }
 @media (max-width: 700px) { .tl { --lab: 150px; } }
 
+
+/* ---------- home and my work ---------- */
+.hero { display: flex; flex-direction: column; gap: 8px; max-width: 980px; margin-bottom: 30px; }
+.hero .sub { font-size: 17px; }
+.steps { list-style: none; margin: 0 0 34px; padding: 0; position: relative; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px; }
+.steps::before { content: ""; position: absolute; left: 12.5%; right: 12.5%; top: 21px; height: 2px; background: linear-gradient(90deg, var(--orange-l), var(--amber-l), var(--berry-l), var(--plum-l)); }
+.step { position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; }
+.step .num { width: 44px; height: 44px; font-size: 19px; box-shadow: 0 0 0 6px var(--bg); }
+.step b { font: 800 16px var(--display); margin-top: 6px; }
+.step.c1 b { color: var(--orange-t); } .step.c2 b { color: var(--amber-t); } .step.c3 b { color: var(--berry-t); } .step.c4 b { color: var(--plum-t); }
+.step .sd { font-size: 14px; color: var(--muted); max-width: 30ch; }
+.week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border: 1px solid var(--line); border-radius: 14px; background: var(--surface); overflow: hidden; margin-bottom: 30px; }
+.day { padding: 10px 8px 14px; border-left: 1px solid var(--line); min-height: 140px; display: flex; flex-direction: column; gap: 6px; }
+.day:first-child { border-left: 0; }
+.day.wkd { background: color-mix(in srgb, var(--lane) 60%, var(--surface)); }
+.dh { display: flex; justify-content: space-between; align-items: baseline; color: var(--muted); font-size: 13px; margin-bottom: 4px; }
+.dh b { font: 800 20px/1 var(--display); color: var(--ink); }
+.day.now { box-shadow: inset 0 3px 0 var(--orange); }
+.day.now .dh span { color: var(--orange-t); font-weight: 800; }
+.wchip { display: flex; align-items: flex-start; gap: 6px; text-align: left; font: 600 13px/1.3 var(--body); color: var(--ink); background: var(--bg); border: 0; border-left: 3px solid var(--c); border-radius: 4px; padding: 6px 6px 6px 8px; cursor: pointer; width: 100%; }
+.wchip > span:first-child { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.wchip:hover { background: var(--lane); }
+.stepcards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.srow { display: flex; align-items: center; gap: 12px; padding: 9px 8px; border-radius: 8px; color: var(--ink); text-decoration: none; background: none; border: 0; width: 100%; font: inherit; text-align: left; cursor: pointer; }
+.srow:hover { background: var(--lane); }
+.srow > svg:first-child { color: var(--muted); }
+.c1 .srow > svg:first-child { color: var(--orange); } .c2 .srow > svg:first-child { color: var(--amber); } .c3 .srow > svg:first-child { color: var(--berry); } .c4 .srow > svg:first-child { color: var(--plum-t); }
+.srow .sl { flex: 1; min-width: 0; font-size: 15px; }
+.srow .sm { font-size: 13.5px; color: var(--muted); white-space: nowrap; }
+.srow .sm.late { color: var(--berry-t); font-weight: 800; }
+.srow .go { color: var(--muted); opacity: 0.6; flex: none; }
+.srow.add .sl { color: var(--muted); }
+.trow { display: flex; align-items: center; gap: 12px; padding: 11px 6px; border: 0; border-bottom: 1px solid var(--line); background: none; width: 100%; font: inherit; color: var(--ink); text-align: left; cursor: pointer; }
+.trow:hover { background: var(--lane); }
+.trow .tt { flex: 1; min-width: 0; font-weight: 600; }
+.trow.is-done .tt { color: var(--muted); text-decoration: line-through; }
+.tp { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; white-space: nowrap; }
+.trow .td { min-width: 80px; text-align: right; }
+.srcwrap { margin-left: 7px; vertical-align: 1px; }
+.donebox { margin-top: 28px; }
+.donebox summary { cursor: pointer; font: 800 16px var(--display); }
+@media (max-width: 900px) {
+  .steps, .stepcards { grid-template-columns: minmax(0, 1fr); }
+  .steps::before { display: none; }
+  .step { flex-direction: row; text-align: left; align-items: center; flex-wrap: wrap; gap: 4px 12px; }
+  .step .num { width: 36px; height: 36px; font-size: 16px; }
+  .step b { margin: 0; } .step .sd { flex-basis: 100%; padding-left: 48px; max-width: none; }
+  .week { grid-template-columns: minmax(0, 1fr); }
+  .day { min-height: 0; border-left: 0; border-top: 1px solid var(--line); flex-direction: row; flex-wrap: wrap; align-items: center; }
+  .day:first-child { border-top: 0; }
+  .dh { width: 92px; margin: 0; }
+  .wchip { width: auto; flex: 1 1 180px; }
+  .tp { display: none; }
+}
+
 @media (max-width: 1100px) {
   .topbar { flex-wrap: wrap; }
   .brand { margin-right: auto; }
@@ -323,3 +378,7 @@ mark { background: var(--amber-s); color: inherit; border-bottom: 2px solid var(
   .cols { grid-template-columns: minmax(0, 1fr); }
 }
 .list td:first-child select { min-width: 140px; }
+/* Keep visually hidden labels inside the scrolling board, and the project menu on screen on phones. */
+.board, .lane { position: relative; }
+@media (max-width: 600px) { .pmenu-list { position: fixed; top: auto; left: 16px; right: 16px; min-width: 0; } }
+.top > .grow { flex: 1 1 520px; min-width: 0; }

@@ -1,91 +1,147 @@
 import Link from 'next/link';
 import { getDb } from '@/lib/db/client';
-import { listProfiles, listProjects } from '@/lib/db/repo';
-import { strongestPairs } from '@/lib/services/profiles';
-import { addProject, loadExampleProjects, refreshAll } from './actions';
+import { listAllTasks, listMeetings, listPeople, listProjects } from '@/lib/db/repo';
+import { addDays, dayOfMonth, dueLabel, fmtDay, fmtWeekday, hourNow, todayIso, weekday } from '@/lib/dates';
+import { COLORS } from '@/lib/colors';
+import { isLate } from '@/lib/tasks';
+import { taskSources } from '@/lib/services/sources';
+import { TaskButton, TaskPanelProvider } from '@/components/task-panel';
+import { WeekChip } from '@/components/task-row';
+import { Avatar } from '@/components/task-bits';
+import { loadExampleProjects } from './actions';
 import { Icon } from './icons';
-import { Score } from './score';
 
 export const dynamic = 'force-dynamic';
 
-export default async function Portfolio() {
+const FLOW: [string, string][] = [
+  ['Plan', 'Projects, owners and dates on one board, so everyone sees what is next.'],
+  ['Meet', 'Drop in a transcript from any tool. Notes, decisions and action items come out.'],
+  ['Deliver', 'Move tasks to done on the board and timeline, and keep dates honest.'],
+  ['Report', 'Write status updates and plans from the tasks and meeting notes.'],
+];
+
+function Arrow() {
+  return <svg className="go" width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4.5 10h11M11 5.5l4.5 4.5-4.5 4.5" /></svg>;
+}
+
+export default async function Home() {
   const db = await getDb();
-  const [projects, profiles, pairs] = await Promise.all([listProjects(db), listProfiles(db), strongestPairs(db, 6)]);
-  const name = (id: string) => projects.find((p) => p.id === id)?.name ?? id;
-  const profileOf = (id: string) => profiles.find((p) => p.projectId === id)?.profile;
-  const best = pairs[0];
+  const today = todayIso();
+  const [projects, tasks, meetings, people] = await Promise.all([listProjects(db), listAllTasks(db), listMeetings(db), listPeople(db)]);
+  const color = (pid: string) => COLORS[(projects.find((p) => p.id === pid)?.color ?? 6) % COLORS.length];
+  const open = tasks.filter((t) => t.status !== 'done');
+  const late = open.filter((t) => isLate(t, today)).sort((a, b) => (a.due! < b.due! ? -1 : 1));
+  const week = open.filter((t) => t.due && t.due >= today && t.due <= addDays(today, 6)).sort((a, b) => (a.due! < b.due! ? -1 : 1));
+  const days = Array.from({ length: 7 }, (_, i) => addDays(today, i));
+  const toReview = meetings.reduce((n, m) => n + m.toReview, 0);
+  const firstToReview = meetings.find((m) => m.toReview > 0);
+  const h = hourNow();
+  const greet = h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
+
+  if (!projects.length) {
+    return (
+      <>
+        <section className="hero"><h1>{greet}: let’s set up your first project</h1>
+          <p className="welcome">Welcome to PM-AVN, the element61 project workspace.</p></section>
+        <div className="empty">
+          <b>No projects yet</b>
+          <p className="muted">Create a project from the portfolio, import a meeting transcript, or load six example projects to look around.</p>
+          <div className="bar"><Link className="btn solid" href="/portfolio#add-project">Create a project</Link><Link className="btn" href="/meetings">Import a transcript</Link>
+            <form action={loadExampleProjects}><button className="btn">Load example projects</button></form></div>
+        </div>
+      </>
+    );
+  }
 
   return (
-    <>
-      <section className="top">
-        <div>
-          <h1>The project portfolio: what our projects have in common</h1>
-          <p className="welcome">Find the team that already solved your problem.</p>
-          <p className="sub">Each project has a profile with a summary, keywords and the technologies it uses. Profiles are compared so you can reuse what works instead of starting from scratch.</p>
-        </div>
-        {projects.length > 0 && (
-          <form action={refreshAll}><button className="btn"><Icon name="refresh" />Rewrite all profiles</button></form>
-        )}
+    <TaskPanelProvider data={{ tasks, people, projects: projects.map((p) => ({ id: p.id, name: p.name })), sources: await taskSources(db, tasks), today }}>
+      <section className="hero">
+        <h1>{greet}: here is your week across every project</h1>
+        <p className="welcome">Welcome to PM-AVN, the element61 project workspace.</p>
+        <p className="sub">
+          {week.length} {week.length === 1 ? 'task is' : 'tasks are'} due in the next seven days{late.length > 0 && <>, and <b className="late">{late.length} {late.length === 1 ? 'is' : 'are'} late</b></>}.
+          {toReview > 0 && ` ${toReview} action ${toReview === 1 ? 'item from a meeting is' : 'items from meetings are'} waiting for review.`}
+        </p>
       </section>
 
-      {projects.length === 0 ? (
-        <div className="empty" style={{ marginTop: 32 }}>
-          <b>No projects yet</b>
-          <p className="muted">Add your first project below, or load six example projects to see how matching works.</p>
-          <form action={loadExampleProjects}><button className="btn solid">Load example projects</button></form>
-        </div>
-      ) : (
-        <div className="cols">
-          <section className="card c1">
-            <h2><span className="num">1</span>Closest matches</h2>
-            <div className="rows">
-              {pairs.map((p) => (
-                <div className="row pair" key={p.fromId + p.projectId}>
-                  <Score value={p.score} />
-                  <div>
-                    <b><Link href={`/projects/${p.fromId}`}>{name(p.fromId)}</Link> and <Link href={`/projects/${p.projectId}`}>{name(p.projectId)}</Link></b>
-                    <p>{p.reason}</p>
-                    <div className="chips">
-                      {[...p.shared.technologies, ...p.shared.domains].slice(0, 6).map((t) => <span className="chip shared" key={t}>{t}</span>)}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-          <section className="card c4">
-            <h2><span className="num">2</span>All projects</h2>
-            <div className="rows">
-              {projects.map((p) => {
-                const prof = profileOf(p.id);
-                return (
-                  <Link className="row" href={`/projects/${p.id}`} key={p.id}>
-                    <b>{p.name}</b>
-                    <p>{prof?.summary || p.description || 'No description yet.'}</p>
-                    <div className="chips">{prof?.technologies.slice(0, 6).map((t) => <span className="chip tech" key={t}>{t}</span>)}</div>
-                  </Link>
-                );
-              })}
-            </div>
-          </section>
-        </div>
-      )}
+      <section aria-labelledby="flow">
+        <p className="eyebrow" id="flow">Your project flow</p>
+        <ol className="steps">
+          {FLOW.map(([t, d], i) => <li key={t} className={`step c${i + 1}`}><span className="num">{i + 1}</span><b>{t}</b><span className="sd">{d}</span></li>)}
+        </ol>
+      </section>
 
-      {best && (
+      <section aria-labelledby="week">
+        <p className="eyebrow" id="week">Next seven days</p>
+        <div className="week">
+          {days.map((d, i) => (
+            <div key={d} className={`day ${i === 0 ? 'now' : ''} ${[0, 6].includes(weekday(d)) ? 'wkd' : ''}`}>
+              <div className="dh"><span>{i === 0 ? 'Today' : fmtWeekday(d)}</span><b>{dayOfMonth(d)}</b></div>
+              {week.filter((t) => t.due === d).map((t) => <WeekChip key={t.id} task={t} color={color(t.projectId)} />)}
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <div className="stepcards">
+        <section className="card c1">
+          <h2><span className="num">1</span>Plan: your projects</h2>
+          {projects.map((p) => {
+            const ts = tasks.filter((t) => t.projectId === p.id);
+            const nl = ts.filter((t) => isLate(t, today)).length;
+            return (
+              <Link key={p.id} className="srow" href={`/projects/${p.id}`}>
+                <i className="dot" style={{ background: color(p.id) }} /><span className="sl">{p.name}</span>
+                {nl > 0 && <span className="pill warn">{nl} late</span>}
+                <span className="sm">{ts.filter((t) => t.status === 'done').length} of {ts.length} done</span><Arrow />
+              </Link>
+            );
+          })}
+          <Link className="srow add" href="/portfolio#add-project"><Icon name="plus" size={16} /><span className="sl">Start a new project</span><Arrow /></Link>
+        </section>
+
+        <section className="card c2">
+          <h2><span className="num">2</span>Meet: recent meetings</h2>
+          {meetings.slice(0, 5).map((m) => (
+            <Link key={m.id} className="srow" href={`/meetings/${m.id}${m.toReview ? '/actions' : ''}`}>
+              <Icon name="meetings" size={16} /><span className="sl">{m.title}</span>
+              {m.toReview > 0 && <span className="pill sig">{m.toReview} to review</span>}
+              <span className="sm">{m.heldOn ? fmtDay(m.heldOn) : ''}</span><Arrow />
+            </Link>
+          ))}
+          <Link className="srow add" href="/meetings"><Icon name="plus" size={16} /><span className="sl">Import a transcript from Teams, Zoom or Meet</span><Arrow /></Link>
+        </section>
+
+        <section className="card c3">
+          <h2><span className="num">3</span>Deliver: late and due this week</h2>
+          {[...late, ...week].slice(0, 7).map((t) => (
+            <TaskButton key={t.id} id={t.id} className="srow">
+              <i className="dot" style={{ background: color(t.projectId) }} /><span className="sl">{t.title}</span>
+              <Avatar name={t.owner} /><span className={`sm ${isLate(t, today) ? 'late' : ''}`}>{dueLabel(t.due, today)}</span><Arrow />
+            </TaskButton>
+          ))}
+          {late.length + week.length === 0 && <p className="muted">Nothing is due this week.</p>}
+          <Link className="srow add" href="/my-work"><Icon name="me" size={16} /><span className="sl">See everything assigned to me</span><Arrow /></Link>
+        </section>
+
+        <section className="card c4">
+          <h2><span className="num">4</span>Report: keep people informed</h2>
+          {projects.slice(0, 5).map((p) => (
+            <Link key={p.id} className="srow" href={`/projects/${p.id}/documents?tpl=status`}>
+              <Icon name="doc" size={16} /><span className="sl">Status update for {p.name}</span><span className="sm">Write with AI</span><Arrow />
+            </Link>
+          ))}
+          <Link className="srow add" href="/portfolio"><Icon name="portfolio" size={16} /><span className="sl">See which projects are alike</span><Arrow /></Link>
+        </section>
+      </div>
+
+      {firstToReview && (
         <aside className="tip">
           <Icon name="bulb" size={22} />
-          <span><b>{name(best.fromId)}</b> and <b>{name(best.projectId)}</b> are the closest pair. {best.reason} <Link href={`/projects/${best.fromId}`}>Compare them</Link>.</span>
+          <span>{toReview} action {toReview === 1 ? 'item' : 'items'} from <b>{firstToReview.title}</b>{meetings.filter((m) => m.toReview).length > 1 ? ' and other meetings' : ''} {toReview === 1 ? 'is' : 'are'} waiting to go on a board.</span>
+          <Link className="btn sm solid" href={`/meetings/${firstToReview.id}/actions`}>Review</Link>
         </aside>
       )}
-
-      <section className="card c2" id="add-project" style={{ marginTop: 32, maxWidth: 640 }}>
-        <h2><span className="num">{projects.length ? 3 : 1}</span>Add a project</h2>
-        <form className="new" action={addProject}>
-          <label>Name<input name="name" required /></label>
-          <label>What is it, for whom, and with which tools?<textarea name="description" rows={3} /></label>
-          <div className="bar"><button className="btn solid">Add project</button></div>
-        </form>
-      </section>
-    </>
+    </TaskPanelProvider>
   );
 }
