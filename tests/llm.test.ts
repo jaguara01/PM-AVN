@@ -23,6 +23,7 @@ describe('choosing the text model', () => {
     const env = { ANTHROPIC_API_KEY: 'x', LLM_BASE_URL: 'https://pmavn.openai.azure.com/openai/v1', LLM_MODEL: 'gpt-4.1-mini', LLM_API_KEY: 'k' };
     expect(llmFromEnv(env)?.name).toBe('azure-openai:gpt-4.1-mini');
     expect(llmFromEnv({ LLM_BASE_URL: 'http://localhost:11434/v1', LLM_MODEL: 'llama3.2' })?.name).toBe('openai-compatible:llama3.2');
+    expect(llmFromEnv({ LLM_BASE_URL: 'https://generativelanguage.googleapis.com/v1beta/openai/', LLM_MODEL: 'gemini-3.8-flash', LLM_API_KEY: 'g' })?.name).toBe('gemini:gemini-3.8-flash');
   });
 });
 
@@ -36,6 +37,13 @@ describe('OpenAI-compatible chat', () => {
     expect(headers['api-key']).toBe('secret');
     expect(headers.authorization).toBe('Bearer secret');
     expect(JSON.parse(String(calls[0].init.body))).toMatchObject({ model: 'gpt-4.1-mini', messages: [{ role: 'user', content: 'hello' }] });
+  });
+  it('calls Gemini with a bearer key and short thinking', async () => {
+    const { impl, calls } = fakeFetch({ choices: [{ message: { content: 'ok' } }] });
+    await openAICompatibleComplete('https://generativelanguage.googleapis.com/v1beta/openai/', 'gemini-3.8-flash', 'g', impl)('hi');
+    expect(calls[0].url).toBe('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions');
+    expect(calls[0].init.headers).toEqual({ 'content-type': 'application/json', authorization: 'Bearer g' });
+    expect(JSON.parse(String(calls[0].init.body))).toMatchObject({ model: 'gemini-3.8-flash', reasoning_effort: 'low' });
   });
   it('sends no Azure header to other services, and no key when none is set', async () => {
     const { impl, calls } = fakeFetch({ choices: [{ message: { content: 'ok' } }] });

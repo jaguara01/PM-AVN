@@ -28,6 +28,7 @@ The app needs two things: a **text model** that writes each project's profile, a
 |---|---|---|---|
 | Anthropic | `ANTHROPIC_API_KEY` | not offered | Pay per use |
 | Azure OpenAI | `LLM_BASE_URL`, `LLM_MODEL`, `LLM_API_KEY` | `EMBEDDINGS_*`, same resource | Azure credits, then pay per use |
+| Google Gemini | `LLM_BASE_URL`, `LLM_MODEL`, `LLM_API_KEY` | `EMBEDDINGS_*`, same key | Free tier with daily limits, then pay per use |
 | Ollama on your machine | `LLM_BASE_URL=http://localhost:11434/v1` | `nomic-embed-text` | Free |
 
 ### Azure OpenAI
@@ -47,6 +48,24 @@ The app needs two things: a **text model** that writes each project's profile, a
    ```
 
 5. Run `npm run profiles -- --force`. The footer of every page shows which text model and embedding model are in use.
+
+### Google Gemini
+
+1. Create a key at [aistudio.google.com](https://aistudio.google.com) (Get API key).
+2. Set in `.env.local`:
+
+   ```bash
+   LLM_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai
+   LLM_MODEL=gemini-3.8-flash
+   LLM_API_KEY=<your key>
+   EMBEDDINGS_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai
+   EMBEDDINGS_MODEL=gemini-embedding-2
+   EMBEDDINGS_API_KEY=<your key>
+   ```
+
+3. Run `npm run profiles -- --force`.
+
+The free tier has low daily request limits: enough for development, not for a team. Google's terms only allow paid use for an app that people in the EU use, so turn on billing in the key's Google Cloud project before colleagues use PM-AVN with it.
 
 Claude is also sold through Microsoft Foundry, but not on free-trial or credit-only subscriptions, and its usage is billed to the card on file rather than to Azure credits.
 

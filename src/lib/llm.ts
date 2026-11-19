@@ -11,12 +11,14 @@ export interface Llm {
 type Env = Record<string, string | undefined>;
 
 /**
- * Any service with an OpenAI-style `POST {baseUrl}/chat/completions`: Azure OpenAI (v1 API), OpenAI, Ollama, LM Studio.
- * For Azure OpenAI, `baseUrl` is https://<resource>.openai.azure.com/openai/v1 and `model` is the deployment name.
+ * Any service with an OpenAI-style `POST {baseUrl}/chat/completions`: Azure OpenAI (v1 API), Google Gemini, OpenAI, Ollama.
+ * Azure OpenAI: `baseUrl` is https://<resource>.openai.azure.com/openai/v1 and `model` is the deployment name.
+ * Gemini: `baseUrl` is https://generativelanguage.googleapis.com/v1beta/openai and the key comes from Google AI Studio.
  */
 export function openAICompatibleComplete(baseUrl: string, model: string, apiKey?: string, fetchImpl: typeof fetch = fetch): CompleteFn {
   const url = `${baseUrl.replace(/\/+$/, '')}/chat/completions`;
   const isAzure = /\.azure\.com/i.test(baseUrl);
+  const isGemini = /generativelanguage\.googleapis\.com/i.test(baseUrl);
   return async (prompt) => {
     const res = await fetchImpl(url, {
       method: 'POST',
@@ -26,7 +28,13 @@ export function openAICompatibleComplete(baseUrl: string, model: string, apiKey?
         ...(apiKey ? { authorization: `Bearer ${apiKey}` } : {}),
         ...(apiKey && isAzure ? { 'api-key': apiKey } : {}),
       },
-      body: JSON.stringify({ model, messages: [{ role: 'user', content: prompt }], max_completion_tokens: 1500 }),
+      body: JSON.stringify({
+        model,
+        messages: [{ role: 'user', content: prompt }],
+        // Gemini 3 models always think and cannot switch it off; keep that short. Profiles are small, so no token cap is set:
+        // a cap that thinking tokens also count against can cut the JSON off half-way.
+        ...(isGemini ? { reasoning_effort: 'low' } : {}),
+      }),
     });
     if (!res.ok) throw new Error(`Chat request to ${url} failed with ${res.status}: ${(await res.text()).slice(0, 300)}`);
     const json = (await res.json()) as { choices?: { message?: { content?: string | null } }[] };
@@ -50,7 +58,7 @@ function anthropicComplete(model: string): CompleteFn {
  */
 export function llmFromEnv(env: Env = process.env, fetchImpl?: typeof fetch): Llm | null {
   if (env.LLM_BASE_URL && env.LLM_MODEL) {
-    const label = /\.azure\.com/i.test(env.LLM_BASE_URL) ? 'azure-openai' : 'openai-compatible';
+    const label = /\.azure\.com/i.test(env.LLM_BASE_URL) ? 'azure-openai' : /generativelanguage\.googleapis\.com/i.test(env.LLM_BASE_URL) ? 'gemini' : 'openai-compatible';
     return { complete: openAICompatibleComplete(env.LLM_BASE_URL, env.LLM_MODEL, env.LLM_API_KEY, fetchImpl), name: `${label}:${env.LLM_MODEL}` };
   }
   if (env.ANTHROPIC_API_KEY) {
