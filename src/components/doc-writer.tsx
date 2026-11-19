@@ -7,9 +7,9 @@ import type { MeetingTemplate, ProjectTemplate } from '@/lib/meetings/prompts';
 
 type Target = { kind: 'meeting'; meetingId: string } | { kind: 'project'; projectId: string };
 
-export function DocWriter({ target, templates, modelName }: { target: Target; templates: [string, string][]; modelName: string | null }) {
+export function DocWriter({ target, templates, modelName, initial }: { target: Target; templates: [string, string][]; modelName: string | null; initial?: string }) {
   const router = useRouter();
-  const [tpl, setTpl] = useState(templates[0][0]);
+  const [tpl, setTpl] = useState(templates.some(([k]) => k === initial) ? initial! : templates[0][0]);
   const [extra, setExtra] = useState('');
   const [error, setError] = useState('');
   const [pending, start] = useTransition();

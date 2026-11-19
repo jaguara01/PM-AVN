@@ -49,9 +49,9 @@ export function TaskPanelProvider({ data, children }: { data: TaskContextData; c
 }
 
 /** A row or chip that opens a task. Renders as a button so it works with the keyboard. */
-export function TaskButton({ id, className, children }: { id: string; className?: string; children: React.ReactNode }) {
+export function TaskButton({ id, className, style, title, children }: { id: string; className?: string; style?: React.CSSProperties; title?: string; children: React.ReactNode }) {
   const { open } = useTaskPanel();
-  return <button type="button" className={className} onClick={() => open(id)}>{children}</button>;
+  return <button type="button" className={className} style={style} title={title} onClick={() => open(id)}>{children}</button>;
 }
 
 function TaskPanel({ task, data, onClose }: { task: Task; data: TaskContextData; onClose: () => void }) {
