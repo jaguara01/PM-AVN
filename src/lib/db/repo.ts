@@ -253,6 +253,17 @@ export async function listMeetingActions(db: Db, meetingId: string): Promise<Mee
   ).rows;
 }
 
+/** Action items assigned to someone that are still waiting for review, with their meeting. */
+export async function listOpenActionsFor(db: Db, owner: string): Promise<(MeetingAction & { meetingTitle: string })[]> {
+  return (
+    await db.query<MeetingAction & { meetingTitle: string }>(
+      `SELECT a.id, a.meeting_id AS "meetingId", a.task, a.owner, a.due_said AS "dueSaid", to_char(a.due, 'YYYY-MM-DD') AS due, a.priority, a.turn, a.task_id AS "taskId", m.title AS "meetingTitle"
+       FROM meeting_actions a JOIN meetings m ON m.id = a.meeting_id WHERE a.owner = $1 AND a.task_id IS NULL ORDER BY m.held_on DESC NULLS LAST, a.position`,
+      [owner],
+    )
+  ).rows;
+}
+
 export async function getMeetingAction(db: Db, id: string): Promise<MeetingAction | null> {
   return (
     await db.query<MeetingAction>(

@@ -26,11 +26,11 @@ browser ── pages / server actions / api routes ── services ── repo (
 
 ## Data
 
-`projects`, `tasks`, `meetings` and `project_profiles`; see `src/lib/db/schema.sql`. Task and meeting columns already match the prototype's data so its features can be ported without reshaping.
+`projects`, `tasks`, `meetings`, `meeting_actions` (action items waiting for review, linked to the task they became), `documents` and `project_profiles`; see `src/lib/db/schema.sql`. Who is using the app is a cookie set on My work until sign-in exists.
 
 ## Not built yet
 
 - Sign-in, users and permissions. Everything is one open workspace today. This must come before real data goes in.
-- The board, list, timeline, meeting and document screens from the prototype.
-- Background jobs. Profiles are refreshed on request or with `npm run profiles`.
+- Background jobs. Profiles are refreshed on request or with `npm run profiles`, and meeting notes are written while the person waits.
+- Live updates between people: pages show fresh data when opened or after an action, not while someone else edits.
 - Not yet run by anyone: the `pg` connection path against a real Postgres, Claude extraction with a live key, and the HTTP embedder against a live service. The SQL itself is exercised by the tests through PGlite.

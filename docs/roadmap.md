@@ -19,7 +19,7 @@ The behaviour to match is in `prototype/` (`npm run prototype`, then open `proto
 - [x] List with sorting and inline editing.
 - [x] Timeline.
 - [x] Task panel with source meeting and quoted transcript line.
-- [ ] Home (next seven days, late, per-project progress) and My work.
+- [x] Home (next seven days, late, per-project progress) and My work.
 - [x] Meetings: import a transcript, store turns, quick offline notes (`src/lib/transcript/core.js` already does the parsing).
 - [x] Meetings: notes written by Claude, on the server.
 - [x] Meetings: review queue that sends action items to a board, with spoken deadlines turned into dates.

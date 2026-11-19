@@ -2,10 +2,16 @@
 
 Project management with meetings built in, and a portfolio view that shows which projects are alike.
 
-This repository is the start of the real application. It contains:
+It contains:
 
-- **The application** (`src/`): Next.js and TypeScript on Postgres with pgvector. Today it covers the portfolio: project profiles and project similarity.
-- **The prototype** (`prototype/`): the single-page PM-AVN app with boards, lists, timelines, meeting notes from transcripts and documents. It is the reference for what still has to be ported. See `docs/roadmap.md`.
+- **The application** (`src/`): Next.js and TypeScript on Postgres with pgvector.
+  - **Home and My work:** the week ahead, what is late, and one person's tasks across projects.
+  - **Projects:** board with drag and drop, list, timeline, meetings, documents, and a profile with similar projects.
+  - **Meetings:** import a transcript from any tool, notes and action items, a review queue that sends action items to a board, whiteboard, questions, in-call requests, documents.
+  - **Portfolio:** project profiles and the closest matches between projects.
+- **The prototype** (`prototype/`): the single-page app this started as, kept as a reference.
+
+Without a text model the app still works: meeting notes come from keywords and AI features say they need a model. See "Choosing the AI services".
 
 ## Run it
 
@@ -16,7 +22,7 @@ npm install
 npm run dev          # http://localhost:3000
 ```
 
-On the first page, choose **Load example projects**. With nothing configured the app uses an embedded Postgres stored in `.data/`, an offline profile extractor and a local embedder. That is enough to develop and test; it is not good matching.
+On the home page, choose **Load example projects**, then import `prototype/sample.txt` on the Meetings page to see a meeting. With nothing configured the app uses an embedded Postgres stored in `.data/`, an offline profile extractor and a local embedder. That is enough to develop and test; it is not good matching.
 
 For real profiles and real matching, copy `.env.example` to `.env.local` and configure the AI services (next section). Set `DATABASE_URL` for a shared Postgres with pgvector (`docker compose up -d` starts one locally). After changing the text model or the embedding model, run `npm run profiles -- --force`.
 

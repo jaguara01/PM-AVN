@@ -50,3 +50,8 @@ export function dueLabel(iso: string | null, today: string): string {
   const d = diffDays(today, iso);
   return d === 0 ? 'Today' : d === 1 ? 'Tomorrow' : d === -1 ? 'Yesterday' : fmtDay(iso);
 }
+
+/** The hour of day (0–23) in the team's time zone. */
+export function hourNow(now: Date = new Date()): number {
+  return Number(new Intl.DateTimeFormat('en-GB', { timeZone: TZ, hour: '2-digit', hourCycle: 'h23' }).format(now));
+}

@@ -26,14 +26,15 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       </head>
       <body>
         <header className="topbar">
-          <Link className="brand" href="/" aria-label="PM-AVN portfolio">
+          <Link className="brand" href="/" aria-label="PM-AVN home">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/element61-logo.png" alt="element61" width={104} height={42} />
             <b>PM-AVN</b>
             <span>Project management</span>
           </Link>
           <nav className="tnav" aria-label="Main">
-            <NavLink href="/"><Icon name="portfolio" />Portfolio</NavLink>
+            <NavLink href="/"><Icon name="home" />Home</NavLink>
+            <NavLink href="/my-work"><Icon name="me" />My work</NavLink>
             <details className="pmenu">
               <summary className="nav"><Icon name="folder" />Projects<Icon name="down" size={16} /></summary>
               <div className="pmenu-list">
@@ -45,10 +46,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 ))}
                 {projects.length === 0 && <span className="nav muted">No projects yet</span>}
                 <hr />
-                <Link className="nav" href="/#add-project"><Icon name="plus" size={16} />New project</Link>
+                <Link className="nav" href="/portfolio#add-project"><Icon name="plus" size={16} />New project</Link>
               </div>
             </details>
             <NavLink href="/meetings"><Icon name="meetings" />Meetings{toReview > 0 && <em title="Action items waiting for review">{toReview}</em>}</NavLink>
+            <NavLink href="/portfolio"><Icon name="portfolio" />Portfolio</NavLink>
           </nav>
           <div className="tright">
             <ThemeToggle />
