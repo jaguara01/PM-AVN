@@ -1,4 +1,5 @@
 /* Loads the example projects into an empty database and writes their profiles. Run with `npm run db:seed`. */
+import './env.mts';
 import { getDb } from '@/lib/db/client';
 import { loadExamples } from '@/lib/examples';
 import { refreshAllProfiles } from '@/lib/services/profiles';
