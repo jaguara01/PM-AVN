@@ -68,13 +68,12 @@ function homeView() {
   const days = [...Array(7)].map((_, i) => addDays(t0, i));
   const waitingM = M.filter(m => m.actions.some(a => !a.taskId)), waitingN = M.reduce((n, m) => n + m.actions.filter(a => !a.taskId).length, 0);
   const hr = new Date().getHours(), greet = hr < 12 ? 'Good morning' : hr < 18 ? 'Good afternoon' : 'Good evening';
-  const first = S.prefs.me ? ', ' + h(S.prefs.me.split(' ')[0]) : '';
   const plan = S.projects.map(p => { const ts = tasksOf(p.id), nl = ts.filter(isLate).length; return srow(`data-act="go" data-r="project" data-id="${p.id}"`, 'folder', h(p.name), `<span class="sm">${ts.filter(t => t.status === 'done').length} of ${ts.length} done</span>`, nl ? `<span class="tag t3">${nl} late</span>` : ''); }).join('') + srow('data-act="new-project"', 'plus', 'Start a new project', '', '', 'add');
   const meet = M.slice(0, 5).map(m => { const w = m.actions.filter(a => !a.taskId).length; return srow(`data-act="go" data-r="meeting" data-id="${m.id}" ${w ? 'data-mtab="actions"' : ''}`, 'meet', h(m.title), `<span class="sm">${fmtDay(m.date)}</span>`, w ? `<span class="tag t2">${w} to review</span>` : ''); }).join('') + srow('data-act="go" data-r="meetings"', 'doc', 'Import a transcript from Teams, Zoom or Meet', '', '', 'add');
   const due = [...late.sort((a, b) => a.due < b.due ? -1 : 1), ...week.filter(t => !isLate(t)).sort((a, b) => a.due < b.due ? -1 : 1)].slice(0, 6);
   const deliver = due.map(t => srow(`data-act="open-task" data-id="${t.id}"`, 'clock', h(t.title), `<span class="sm ${isLate(t) ? 'late' : ''}">${h(dueLabel(t.due))}</span>`, av(t.owner, 'sm'))).join('') || '<p class="quietp" style="padding:8px">Nothing is due this week.</p>';
   const report = S.projects.slice(0, 4).map(p => srow(`data-act="go" data-r="project" data-id="${p.id}" data-tab="docs" data-tpl="status"`, 'doc', 'Status update for ' + h(p.name), '<span class="sm">Write with Claude</span>')).join('') + srow('data-act="go" data-r="mywork"', 'me', 'See everything assigned to me', '', '', 'add');
-  return `<section class="hero"><h1>${greet}${first}: here is your week across every project</h1>
+  return `<section class="hero"><h1>${greet}: here is your week across every project</h1>
    <p class="welcome">Welcome to PM-AVN, the element61 project workspace.</p>
    <p class="intro">${week.length} ${week.length === 1 ? 'task is' : 'tasks are'} due in the next seven days${late.length ? `, and <b class="late">${late.length} ${late.length === 1 ? 'is' : 'are'} late</b>` : ''}.${waitingN ? ` ${waitingN} action ${waitingN === 1 ? 'item from a meeting is' : 'items from meetings are'} waiting for your review.` : ''}</p></section>
   <section><p class="eyebrow">Your project flow</p><div class="steps">${FLOW.map(([t, d], i) => `<div class="step c${i + 1}"><span class="num">${i + 1}</span><b>${t}</b><span class="sd">${d}</span></div>`).join('')}</div></section>
