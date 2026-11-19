@@ -1,5 +1,6 @@
 /* Rewrites project profiles. `npm run profiles` updates what changed; `npm run profiles -- --force` redoes all,
    which is what you want after switching the Claude model or the embedding model. */
+import './env.mts';
 import { getDb } from '@/lib/db/client';
 import { refreshAllProfiles } from '@/lib/services/profiles';
 
