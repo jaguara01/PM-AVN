@@ -8,7 +8,9 @@ Several people work in this repository, each with Claude Code. This file is the 
 - `src/lib/similarity/` — pure logic, no database or network: profile types, term normalisation, extraction (Claude and offline), embedders, hybrid scoring.
 - `src/lib/db/` — `schema.sql` (idempotent, run on start), `client.ts` (Postgres or embedded PGlite), `repo.ts` (all SQL lives here).
 - `src/lib/services/profiles.ts` — ties the above together: refresh a profile, rank similar projects.
-- `src/lib/transcript/core.js` — transcript parser and meeting heuristics, copied from the prototype, not yet typed.
+- `src/lib/transcript/` — transcript parser and offline meeting heuristics (`core.js`, from the prototype) behind a typed `index.ts`.
+- `src/lib/meetings/` — meeting analysis with a model, prompts for documents, questions and in-call requests.
+- `src/lib/services/` — `profiles.ts` (similarity), `meetings.ts` (import, review queue, documents), `sources.ts`.
 - `src/app/` — Next.js App Router pages, server actions in `actions.ts`, JSON routes under `api/`.
 - `prototype/` — the single-page app this product started as. Reference for porting; do not add features there.
 - `docs/` — `architecture.md`, `similarity.md`, `roadmap.md`, `design.md` (colours, type and patterns: follow it for any screen).

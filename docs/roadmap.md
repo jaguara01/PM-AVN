@@ -18,12 +18,12 @@ The behaviour to match is in `prototype/` (`npm run prototype`, then open `proto
 - [x] Board with drag and drop between the four statuses.
 - [ ] List with sorting and inline editing.
 - [ ] Timeline.
-- [x] Task panel (the source meeting and quoted line arrive with meetings).
+- [x] Task panel with source meeting and quoted transcript line.
 - [ ] Home (next seven days, late, per-project progress) and My work.
-- [ ] Meetings: import a transcript, store turns, quick offline notes (`src/lib/transcript/core.js` already does the parsing).
-- [ ] Meetings: notes written by Claude, on the server.
-- [ ] Meetings: review queue that sends action items to a board, with spoken deadlines turned into dates.
-- [ ] Meetings: whiteboard, ask, requests addressed to Claude, documents.
+- [x] Meetings: import a transcript, store turns, quick offline notes (`src/lib/transcript/core.js` already does the parsing).
+- [x] Meetings: notes written by Claude, on the server.
+- [x] Meetings: review queue that sends action items to a board, with spoken deadlines turned into dates.
+- [x] Meetings: whiteboard, ask, requests addressed to Claude, documents.
 - [ ] Project documents: status update, next-week plan, risk review.
 - [ ] Type `src/lib/transcript/core.js` as TypeScript, keeping `tests/transcript.test.ts` green.
 - [x] Choose a visual direction and apply it: element61 house style, see `design.md`.
