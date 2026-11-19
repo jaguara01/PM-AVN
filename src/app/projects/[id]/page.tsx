@@ -44,7 +44,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
                 <h2>Domain</h2>
                 <div className="chips">{profile.domains.length ? profile.domains.map((t) => <span className="chip" key={t}>{t}</span>) : <span className="muted">Not classified.</span>}</div>
                 {stored.extractor === 'offline' && (
-                  <p className="tip"><Icon name="bulb" size={20} /><span>This profile was written by the offline extractor, which only counts words and recognises a fixed list of technologies. Set ANTHROPIC_API_KEY to have Claude write it.</span></p>
+                  <p className="tip"><Icon name="bulb" size={20} /><span>This profile was written by the offline extractor, which only counts words and recognises a fixed list of technologies. Configure a text model (see “Choosing the AI services” in the README) to have it written properly.</span></p>
                 )}
               </>
             ) : (

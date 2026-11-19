@@ -9,16 +9,21 @@ function l2normalize(v: number[]): number[] {
   return n ? v.map((x) => x / n) : v;
 }
 
-/** Works with any service that exposes an OpenAI-style `POST {baseUrl}/embeddings`. */
+/** Works with any service that exposes an OpenAI-style `POST {baseUrl}/embeddings`, including Azure OpenAI's v1 API (model = deployment name). */
 export class HttpEmbedder implements Embedder {
   readonly model: string;
-  constructor(private baseUrl: string, model: string, private apiKey?: string) {
+  constructor(private baseUrl: string, model: string, private apiKey?: string, private fetchImpl: typeof fetch = fetch) {
     this.model = model;
   }
   async embed(texts: string[]): Promise<number[][]> {
-    const res = await fetch(`${this.baseUrl.replace(/\/$/, '')}/embeddings`, {
+    const azure = /\.azure\.com/i.test(this.baseUrl);
+    const res = await this.fetchImpl(`${this.baseUrl.replace(/\/+$/, '')}/embeddings`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json', ...(this.apiKey ? { authorization: `Bearer ${this.apiKey}` } : {}) },
+      headers: {
+        'content-type': 'application/json',
+        ...(this.apiKey ? { authorization: `Bearer ${this.apiKey}` } : {}),
+        ...(this.apiKey && azure ? { 'api-key': this.apiKey } : {}),
+      },
       body: JSON.stringify({ model: this.model, input: texts }),
     });
     if (!res.ok) throw new Error(`Embeddings request failed with ${res.status}: ${(await res.text()).slice(0, 300)}`);
