@@ -26,7 +26,7 @@ The behaviour to match is in `prototype/` (`npm run prototype`, then open `proto
 - [ ] Meetings: whiteboard, ask, requests addressed to Claude, documents.
 - [ ] Project documents: status update, next-week plan, risk review.
 - [ ] Type `src/lib/transcript/core.js` as TypeScript, keeping `tests/transcript.test.ts` green.
-- [ ] Choose a visual direction from the five reviewed and apply it.
+- [x] Choose a visual direction and apply it: element61 house style, see `design.md`.
 
 ## 3. Similarity
 

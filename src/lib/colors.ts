@@ -1,2 +1,2 @@
-/** Project colours, picked by `project.color % COLORS.length`. */
-export const COLORS = ['#2E8B6A', '#3B63D9', '#8A4FB3', '#D9951A', '#C8503C', '#1E8A99', '#5B6B7A'];
+/** Project colours, picked by `project.color % COLORS.length`. The first four are the element61 journey colours (docs/design.md). */
+export const COLORS = ['#F26412', '#D07C00', '#9E1F55', '#2D1B4E', '#1E8A99', '#3B63D9', '#5B6475'];
