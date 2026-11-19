@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { mkdirSync } from 'node:fs';
+import { acquireLock } from './lock';
 import path from 'node:path';
 
 export interface Db {
@@ -18,12 +19,19 @@ async function migrate(db: Db): Promise<void> {
 export async function openEmbedded(dataDir?: string): Promise<Db> {
   const { PGlite } = await import('@electric-sql/pglite');
   const { vector } = await import('@electric-sql/pglite-pgvector');
-  if (dataDir) mkdirSync(dataDir, { recursive: true });
+  let release = () => {};
+  if (dataDir) {
+    mkdirSync(dataDir, { recursive: true });
+    release = acquireLock(`${dataDir}.lock`);
+  }
   const pg = new PGlite({ dataDir, extensions: { vector } });
   const db: Db = {
     query: async (text, params) => ({ rows: (await pg.query(text, params)).rows as never[] }),
     exec: async (sql) => void (await pg.exec(sql)),
-    close: () => pg.close(),
+    close: async () => {
+      await pg.close();
+      release();
+    },
   };
   await migrate(db);
   return db;
