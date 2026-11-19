@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getDb } from '@/lib/db/client';
 import { listProjects } from '@/lib/db/repo';
-import { claudeFromEnv } from '@/lib/llm';
+import { llmFromEnv } from '@/lib/llm';
 import { embedderFromEnv } from '@/lib/similarity';
 import { COLORS } from '@/lib/colors';
 import { Icon } from './icons';
@@ -53,7 +53,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <main>
           {children}
           <footer className="foot">
-            <span>Profiles: {claudeFromEnv() ? 'written by Claude' : 'offline extractor'}</span>
+            <span>Profiles: {llmFromEnv()?.name ?? 'offline extractor'}</span>
             <span>Embeddings: {embedderFromEnv().model}</span>
             <span>Database: {process.env.DATABASE_URL ? 'Postgres' : 'embedded'}</span>
           </footer>

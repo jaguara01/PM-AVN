@@ -4,7 +4,7 @@ import {
   buildSourceText, contentHash, embedderFromEnv, extractProfileOffline, extractProfileWithModel, profileToEmbeddingText, rankSimilar, topPairs,
   type CompleteFn, type Embedder, type SimilarityResult, type StoredProfile,
 } from '@/lib/similarity';
-import { claudeFromEnv, claudeModel } from '@/lib/llm';
+import { llmFromEnv } from '@/lib/llm';
 
 export interface ProfileDeps {
   embedder?: Embedder;
@@ -14,8 +14,10 @@ export interface ProfileDeps {
 }
 
 function resolve(deps: ProfileDeps) {
-  const complete = deps.complete === undefined ? claudeFromEnv() : deps.complete;
-  return { embedder: deps.embedder ?? embedderFromEnv(), complete, extractor: complete ? (deps.extractorName ?? claudeModel()) : 'offline' };
+  const llm = deps.complete === undefined ? llmFromEnv() : null;
+  const complete = deps.complete === undefined ? (llm?.complete ?? null) : deps.complete;
+  const extractor = complete ? (deps.extractorName ?? llm?.name ?? 'custom') : 'offline';
+  return { embedder: deps.embedder ?? embedderFromEnv(), complete, extractor };
 }
 
 /**
